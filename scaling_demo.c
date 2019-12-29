@@ -160,7 +160,7 @@ static void Run(const char *font_path) {
     fprintf(stderr, "TTF_Init error: %s\n", TTF_GetError());
     exit(1);
   }
-  SetRenderMode(RENDER_MODE_NATIVE, font_path);
+  SetRenderMode(RENDER_MODE_SCALED, font_path);
   EventLoop(font_path);
   TTF_CloseFont(font12);
   TTF_CloseFont(font10);
