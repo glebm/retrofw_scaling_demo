@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "read_png_phys.h"
+
 #ifndef QUIT_KEY_LABEL
 #define QUIT_KEY_LABEL "ESC"
 #endif
@@ -57,7 +59,16 @@ static void LoadImage(const char **image_paths) {
   image = IMG_Load(image_path);
   if (image == NULL) {
     fprintf(stderr, "IMG_Load error %s: %s\n", image_path, IMG_GetError());
+    return;
   }
+  PNGpHYsResult phys_result = read_png_phys_from_path(image_path);
+  if (phys_result.error != NULL) {
+    fprintf(stderr, "Error reading pHYs: %s\n", phys_result.error);
+    return;
+  }
+  PNGpHYs phys = phys_result.value;
+  fprintf(stderr, "pHYs: %s %u %u %u\n", image_path, phys.x_pixels_per_unit,
+          phys.y_pixels_per_unit, phys.units);
 }
 
 static void UnloadFont(TTF_Font **font) {

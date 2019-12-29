@@ -10,6 +10,7 @@ endif()
 
 set(RetroFWScalingDemo_SRCS
   third_party/SDL_ttf/SDL_ttf.c
+  read_png_phys.c
   scaling_demo.c
 )
 
