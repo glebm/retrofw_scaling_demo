@@ -26,3 +26,21 @@ cmake --build .
 ```
 
 The binary will be built at `build/scaling_demo`.
+
+## Image DPI
+
+`lenna_128x256.png` has its DPI metadata set correctly:
+
+```bash
+exiv2 -pv lenna_128x256.png
+0x011a Image        XResolution                 Rational    1  72/1
+0x011b Image        YResolution                 Rational    1  144/1
+```
+
+It was set with the following command:
+
+```bash
+exiv2 -m <(printf 'set Exif.Image.XResolution 72/1\nset Exif.Image.YResolution 144/1') lenna_128x256.png
+```
+
+This information is not yet used by the demo app.
