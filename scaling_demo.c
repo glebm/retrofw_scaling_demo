@@ -22,6 +22,11 @@ static TTF_Font **fonts[] = {&font12, &font10, &font8};
 static const int font_sizes[] = {12, 10, 8};
 static const int num_fonts = sizeof(fonts) / sizeof(fonts[0]);
 
+static const char *kImagePaths128[] = {"lenna_128x128.png",
+                                       "../lenna_128x128.png"};
+static const char *kImagePaths256[] = {"lenna_128x256.png",
+                                       "../lenna_128x256.png"};
+
 typedef enum RenderMode {
   RENDER_MODE_NATIVE,
   RENDER_MODE_SCALED,
@@ -30,24 +35,13 @@ static RenderMode current_render_mode;
 
 static SDL_Surface *image = NULL;
 
-static void LoadImage() {
-  if (image != NULL) {
-    SDL_FreeSurface(image);
-    image = NULL;
-  }
-  static const char *kImagePaths128[] = {"lenna_128x128.png",
-                                         "../lenna_128x128.png"};
-  static const char *kImagePaths256[] = {"lenna_128x256.png",
-                                         "../lenna_128x256.png"};
-  const char **image_paths;
-  switch (current_render_mode) {
-    case RENDER_MODE_NATIVE:
-      image_paths = kImagePaths256;
-      break;
-    case RENDER_MODE_SCALED:
-      image_paths = kImagePaths128;
-      break;
-  }
+static void UnloadImage() {
+  if (image == NULL) return;
+  SDL_FreeSurface(image);
+  image = NULL;
+}
+
+static void LoadImage(const char **image_paths) {
   const char *image_path = NULL;
   for (int i = 0; i < 2; ++i) {
     if (access(image_paths[i], F_OK) == 0) {
@@ -59,9 +53,38 @@ static void LoadImage() {
     fputs("image not found\n", stderr);
     return;
   }
+  UnloadImage();
   image = IMG_Load(image_path);
   if (image == NULL) {
     fprintf(stderr, "IMG_Load error %s: %s\n", image_path, IMG_GetError());
+  }
+}
+
+static void UnloadFont(TTF_Font **font) {
+  if (*font == NULL) return;
+  TTF_CloseFont(*font);
+  *font = NULL;
+}
+
+static void LoadFont(TTF_Font **font, const char *font_path, int size,
+                     unsigned int hdpi, unsigned int vdpi) {
+  *font = TTF_OpenFontDPI(font_path, size, hdpi, vdpi);
+  if (*font == NULL) {
+    fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
+    exit(1);
+  }
+}
+
+static void LoadFonts(const char *font_path, unsigned int hdpi,
+                      unsigned int vdpi) {
+  for (int i = 0; i < num_fonts; ++i) {
+    LoadFont(fonts[i], font_path, font_sizes[i], hdpi, vdpi);
+  }
+}
+
+static void UnloadFonts() {
+  for (int i = 0; i < num_fonts; ++i) {
+    UnloadFont(fonts[i]);
   }
 }
 
@@ -137,22 +160,10 @@ static void Render() {
   SDL_Flip(screen);
 }
 
-static void LoadFont(TTF_Font **font, const char *font_path, int size,
-                     unsigned int hdpi, unsigned int vdpi) {
-  if (*font != NULL) {
-    TTF_CloseFont(*font);
-    *font = NULL;
-  }
-  *font = TTF_OpenFontDPI(font_path, size, hdpi, vdpi);
-  if (*font == NULL) {
-    fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
-    exit(1);
-  }
-}
-
 static void SetRenderMode(RenderMode render_mode, const char *font_path) {
   current_render_mode = render_mode;
   int hdpi, vdpi;
+  const char **image_paths;
   switch (current_render_mode) {
     case RENDER_MODE_NATIVE:
       if (SDL_SetVideoMode(320, 480, 0, 0) == NULL) {
@@ -161,6 +172,7 @@ static void SetRenderMode(RenderMode render_mode, const char *font_path) {
       }
       hdpi = 72;
       vdpi = 2 * hdpi;
+      image_paths = kImagePaths256;
       break;
     case RENDER_MODE_SCALED:
       if (SDL_SetVideoMode(320, 240, 0, 0) == NULL) {
@@ -169,12 +181,11 @@ static void SetRenderMode(RenderMode render_mode, const char *font_path) {
       }
       hdpi = 0;
       vdpi = 0;
+      image_paths = kImagePaths128;
       break;
   }
-  for (int i = 0; i < num_fonts; ++i) {
-    LoadFont(fonts[i], font_path, font_sizes[i], hdpi, vdpi);
-  }
-  LoadImage();
+  LoadFonts(font_path, hdpi, vdpi);
+  LoadImage(image_paths);
   Render();
 }
 
@@ -219,17 +230,18 @@ static void Run(const char *font_path) {
   }
   if (IMG_Init(IMG_INIT_PNG) != IMG_INIT_PNG) {
     fprintf(stderr, "IMG_Init error: %s\n", IMG_GetError());
+    exit(1);
   }
 
   SetRenderMode(RENDER_MODE_SCALED, font_path);
   EventLoop(font_path);
 
-  if (image != NULL) SDL_FreeSurface(image);
+  UnloadImage();
   IMG_Quit();
-  TTF_CloseFont(font12);
-  TTF_CloseFont(font10);
-  TTF_CloseFont(font8);
+
+  UnloadFonts();
   TTF_Quit();
+
   SDL_Quit();
 }
 
