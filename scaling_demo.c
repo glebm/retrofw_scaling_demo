@@ -13,14 +13,20 @@
 static const SDL_Color kBlack = {0, 0, 0, 0};
 static const SDL_Color kWhite = {255, 255, 255, 0};
 
-static TTF_Font *font = NULL;
+static TTF_Font *font12 = NULL;
+static TTF_Font *font10 = NULL;
+static TTF_Font *font8 = NULL;
+static TTF_Font **fonts[] = {&font12, &font10, &font8};
+static const int font_sizes[] = {12, 10, 8};
+static const int num_fonts = sizeof(fonts) / sizeof(fonts[0]);
+
 typedef enum RenderMode {
   RENDER_MODE_NATIVE,
   RENDER_MODE_SCALED,
 } RenderMode;
 static RenderMode current_render_mode;
 
-static int RenderText(const char *text, int x, int y) {
+static int RenderText(TTF_Font *font, const char *text, int x, int y) {
   SDL_Surface *text_surface = TTF_RenderText_Shaded(font, text, kBlack, kWhite);
   if (text_surface == NULL) {
     fprintf(stderr, "%s\n", TTF_GetError());
@@ -43,35 +49,47 @@ static void Render() {
   int y = screen->h / 20;
 
   const char *mode_text;
-  y += RenderText("Current mode:", x, y);
   switch (current_render_mode) {
     case RENDER_MODE_SCALED:
-      mode_text = "upscaled by the IPU from 320x240";
+      mode_text = "Current mode: 320x240 - upscaled by the IPU";
       break;
     case RENDER_MODE_NATIVE:
-      mode_text = "native screen resolution 320x480";
+      mode_text = "Current mode: 320x480 - native resolution";
       break;
   }
+  y += 2 * RenderText(font12, mode_text, x, y);
+  y += RenderText(font12, "Controls:", x, y);
+  y += RenderText(
+      font12, "  " CHANGE_MODE_KEY_LABEL " to change rendering mode.", x, y);
+  y += RenderText(font12, "  " QUIT_KEY_LABEL " to quit. ", x, y);
+  y += screen->h / 24;
 
-  RenderText(mode_text, x, y);
-  y += screen->h / 3;
+  const char demo_text_upper[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const char demo_text_lower[] = "abcdefghijklmnopqrstuvwxyz";
+  const char demo_text_numbers[] = "0123456789";
 
-  y += 2 * RenderText("Controls:", x, y);
-  y +=
-      RenderText("  " CHANGE_MODE_KEY_LABEL " to change rendering mode.", x, y);
-  RenderText("  " QUIT_KEY_LABEL " to quit. ", x, y);
+  for (int i = 0; i < num_fonts; ++i) {
+    TTF_Font *font = *fonts[i];
+    y += RenderText(font, demo_text_upper, x, y);
+    y += RenderText(font, demo_text_lower, x, y);
+    y += RenderText(font, demo_text_numbers, x, y);
+    y += screen->h / 48;
+  }
+
+  RenderText(font10, "https://github.com/glebm/retrofw_scaling_demo",
+             x + screen->w / 10, y);
 
   SDL_Flip(screen);
 }
 
-static void LoadFont(const char *font_path, unsigned int hdpi,
-                     unsigned int vdpi) {
-  if (font != NULL) {
-    TTF_CloseFont(font);
-    font = NULL;
+static void LoadFont(TTF_Font **font, const char *font_path, int size,
+                     unsigned int hdpi, unsigned int vdpi) {
+  if (*font != NULL) {
+    TTF_CloseFont(*font);
+    *font = NULL;
   }
-  font = TTF_OpenFontDPI(font_path, 12, hdpi, vdpi);
-  if (font == NULL) {
+  *font = TTF_OpenFontDPI(font_path, size, hdpi, vdpi);
+  if (*font == NULL) {
     fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
     exit(1);
   }
@@ -79,21 +97,27 @@ static void LoadFont(const char *font_path, unsigned int hdpi,
 
 static void SetRenderMode(RenderMode render_mode, const char *font_path) {
   current_render_mode = render_mode;
+  int hdpi, vdpi;
   switch (current_render_mode) {
     case RENDER_MODE_NATIVE:
       if (SDL_SetVideoMode(320, 480, 0, 0) == NULL) {
         fprintf(stderr, "SDL_SetVideoMode 320x480 error: %s\n", SDL_GetError());
         exit(1);
       }
-      LoadFont(font_path, 72, 72 * 2);
+      hdpi = 72;
+      vdpi = 2 * hdpi;
       break;
     case RENDER_MODE_SCALED:
       if (SDL_SetVideoMode(320, 240, 0, 0) == NULL) {
         fprintf(stderr, "SDL_SetVideoMode 320x240 error: %s\n", SDL_GetError());
         exit(1);
       }
-      LoadFont(font_path, 0, 0);
+      hdpi = 0;
+      vdpi = 0;
       break;
+  }
+  for (int i = 0; i < num_fonts; ++i) {
+    LoadFont(fonts[i], font_path, font_sizes[i], hdpi, vdpi);
   }
   Render();
 }
@@ -138,7 +162,9 @@ static void Run(const char *font_path) {
   }
   SetRenderMode(RENDER_MODE_NATIVE, font_path);
   EventLoop(font_path);
-  TTF_CloseFont(font);
+  TTF_CloseFont(font12);
+  TTF_CloseFont(font10);
+  TTF_CloseFont(font8);
   TTF_Quit();
   SDL_Quit();
 }
