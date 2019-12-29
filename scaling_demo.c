@@ -156,6 +156,7 @@ static void Run(const char *font_path) {
     fprintf(stderr, "SDL_Init(SDL_INIT_VIDEO) error: %s\n", SDL_GetError());
     exit(1);
   }
+  SDL_ShowCursor(0);
   if (TTF_Init() == -1) {
     fprintf(stderr, "TTF_Init error: %s\n", TTF_GetError());
     exit(1);
