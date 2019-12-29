@@ -11,17 +11,22 @@ check_buildroot() {
 
 make_buildroot() {
   cd "$BUILDROOT"
-  if ! [[ -d output/staging/usr/include/SDL/ ]]; then
-    make SDL BR2_JLEVEL=0
+  # Check dependencies manually as it's much faster than `make`.
+  local -a deps=()
+  if ! [[ -f output/staging/usr/include/SDL/SDL.h ]]; then
+    deps+=(SDL)
   fi
   if ! [[ -f output/staging/usr/include/SDL/SDL_image.h ]]; then
-    make sdl_image BR2_JLEVEL=0
+    deps+=(sdl_image)
   fi
   if ! [[ -d output/staging/usr/include/freetype2/ ]]; then
-    make freetype BR2_JLEVEL=0
+    deps+=(freetype)
   fi
   if ! [[ -f output/host/usr/share/buildroot/toolchainfile.cmake ]]; then
-    make toolchain BR2_JLEVEL=0
+    deps+=(toolchain)
+  fi
+  if (( ${#deps[@]} )); then
+    make "${deps[@]}" BR2_JLEVEL=0
   fi
   cd -
 }
