@@ -17,15 +17,18 @@ set(BIN_TARGET scaling_demo)
 add_executable(${BIN_TARGET} ${RetroFWScalingDemo_SRCS})
 
 find_package(SDL REQUIRED)
+find_package(SDL_image REQUIRED)
 find_package(Freetype REQUIRED)
 target_include_directories(${BIN_TARGET} PUBLIC
   third_party/SDL_ttf/
   ${SDL_INCLUDE_DIR}
+  ${SDL_IMAGE_INCLUDE_DIRS}
   ${FREETYPE_INCLUDE_DIRS}
 )
 target_link_libraries(${BIN_TARGET} PRIVATE
   ${SDL_LIBRARY}
-  ${FREETYPE_LIBRARY}
+  ${SDL_IMAGE_LIBRARIES}
+  ${FREETYPE_LIBRARIES}
   m
 )
 

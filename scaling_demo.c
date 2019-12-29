@@ -1,6 +1,8 @@
 #include <SDL.h>
+#include <SDL_image.h>
 #include <SDL_ttf.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #ifndef QUIT_KEY_LABEL
 #define QUIT_KEY_LABEL "ESC"
@@ -26,6 +28,43 @@ typedef enum RenderMode {
 } RenderMode;
 static RenderMode current_render_mode;
 
+static SDL_Surface *image = NULL;
+
+static void LoadImage() {
+  if (image != NULL) {
+    SDL_FreeSurface(image);
+    image = NULL;
+  }
+  static const char *kImagePaths128[] = {"lenna_128x128.png",
+                                         "../lenna_128x128.png"};
+  static const char *kImagePaths256[] = {"lenna_128x256.png",
+                                         "../lenna_128x256.png"};
+  const char **image_paths;
+  switch (current_render_mode) {
+    case RENDER_MODE_NATIVE:
+      image_paths = kImagePaths256;
+      break;
+    case RENDER_MODE_SCALED:
+      image_paths = kImagePaths128;
+      break;
+  }
+  const char *image_path = NULL;
+  for (int i = 0; i < 2; ++i) {
+    if (access(image_paths[i], F_OK) == 0) {
+      image_path = image_paths[i];
+      break;
+    }
+  }
+  if (image_path == NULL) {
+    fputs("image not found\n", stderr);
+    return;
+  }
+  image = IMG_Load(image_path);
+  if (image == NULL) {
+    fprintf(stderr, "IMG_Load error %s: %s\n", image_path, IMG_GetError());
+  }
+}
+
 static int RenderText(TTF_Font *font, const char *text, int x, int y) {
   SDL_Surface *text_surface = TTF_RenderText_Shaded(font, text, kBlack, kWhite);
   if (text_surface == NULL) {
@@ -40,13 +79,15 @@ static int RenderText(TTF_Font *font, const char *text, int x, int y) {
 }
 
 static void Render() {
+  const int vscale = current_render_mode == RENDER_MODE_NATIVE ? 2 : 1;
+
   SDL_Surface *screen = SDL_GetVideoSurface();
   SDL_FillRect(screen, NULL,
                SDL_MapRGB(screen->format, kWhite.r, kWhite.g, kWhite.b));
 
   const int width = screen->w;
-  const int x = screen->w / 20;
-  int y = screen->h / 20;
+  const int x = 2;
+  int y = 2 * vscale;
 
   const char *mode_text;
   switch (current_render_mode) {
@@ -76,8 +117,22 @@ static void Render() {
     y += screen->h / 48;
   }
 
-  RenderText(font10, "https://github.com/glebm/retrofw_scaling_demo",
-             x + screen->w / 10, y);
+  y += RenderText(font10, "https://github.com/glebm/", x, y);
+  RenderText(font10, "retrofw_scaling_demo", x, y);
+
+  if (image != NULL) {
+    SDL_Surface *tmp_image = SDL_DisplayFormat(image);
+    if (tmp_image == NULL) {
+      fprintf(stderr, "SDL_DisplayFormat error: %s\n", SDL_GetError());
+      exit(1);
+    }
+    const int img_width = 128;
+    const int img_height = 128 * vscale;
+    SDL_Rect dest_rect = {screen->w - img_width - 2,
+                          screen->h - img_height - 2 * vscale, 0, 0};
+    SDL_BlitSurface(tmp_image, NULL, screen, &dest_rect);
+    SDL_FreeSurface(tmp_image);
+  }
 
   SDL_Flip(screen);
 }
@@ -119,6 +174,7 @@ static void SetRenderMode(RenderMode render_mode, const char *font_path) {
   for (int i = 0; i < num_fonts; ++i) {
     LoadFont(fonts[i], font_path, font_sizes[i], hdpi, vdpi);
   }
+  LoadImage();
   Render();
 }
 
@@ -161,8 +217,15 @@ static void Run(const char *font_path) {
     fprintf(stderr, "TTF_Init error: %s\n", TTF_GetError());
     exit(1);
   }
+  if (IMG_Init(IMG_INIT_PNG) != IMG_INIT_PNG) {
+    fprintf(stderr, "IMG_Init error: %s\n", IMG_GetError());
+  }
+
   SetRenderMode(RENDER_MODE_SCALED, font_path);
   EventLoop(font_path);
+
+  if (image != NULL) SDL_FreeSurface(image);
+  IMG_Quit();
   TTF_CloseFont(font12);
   TTF_CloseFont(font10);
   TTF_CloseFont(font8);

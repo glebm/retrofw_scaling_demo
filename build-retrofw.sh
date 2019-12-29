@@ -14,6 +14,9 @@ make_buildroot() {
   if ! [[ -d output/staging/usr/include/SDL/ ]]; then
     make SDL BR2_JLEVEL=0
   fi
+  if ! [[ -f output/staging/usr/include/SDL/SDL_image.h ]]; then
+    make sdl_image BR2_JLEVEL=0
+  fi
   if ! [[ -d output/staging/usr/include/freetype2/ ]]; then
     make freetype BR2_JLEVEL=0
   fi
@@ -54,6 +57,8 @@ EOF
   mksquashfs \
     default.retrofw.desktop \
     scaling_demo.dge \
+    ../lenna_128x128.png \
+    ../lenna_128x256.png \
     retrofw_scaling_demo.opk \
   -all-root -no-xattrs -noappend -no-exports
   cd -
